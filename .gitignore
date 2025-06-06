@@ -1,0 +1,121 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### 민감한 정보 파일들 ###
+# 로컬 개발용 설정 파일 (DB 접속 정보, JWT Secret 등 포함)
+src/main/resources/application-local.yml
+src/main/resources/application-secret.yml
+src/main/resources/application-dev.yml
+
+# 환경변수 파일
+.env
+.env.local
+.env.development
+.env.production
+
+# Kubernetes Secrets (실제 값이 포함된 파일)
+k8s/*secrets.yaml
+k8s/*secret.yaml
+**/secrets.yaml
+**/secret.yaml
+
+# 로그 파일
+logs/
+*.log
+
+# 백업 파일
+*.bak
+*.backup
+
+# OS 관련 파일
+.DS_Store
+Thumbs.db
+
+### 추가 보안 항목들 ###
+# Docker 관련
+.docker/
+docker-compose.override.yml
+
+# 테스트 결과 파일
+**/test-results/
+**/coverage/
+
+# 임시 파일
+*.tmp
+*.temp
+login_response.json
+test_*.json
+
+# 배포 스크립트 (민감한 정보 포함 가능)
+deploy-prod.sh
+deploy-secret.sh
+
+# IDE 설정
+.settings/
+.metadata/
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+### 프로젝트별 추가 항목 ###
+# 실제 배포 파일들
+user-service-deployment.yaml
+k8s/production/
+deployment-configs/
+
+# 실제 환경 설정
+application-prod.yml
+application-naver.yml
+
+# 빌드 아티팩트
+*.jar
+*.war
+
+# 개발 중 임시 파일들
+TODO.md
+NOTES.md
+scratch.md
+
+# 민감한 정보 파일들 (팀 내부 공유용)
+SENSITIVE_INFO.md
+TEAM_SECRETS.md
+PRODUCTION_CONFIG.md

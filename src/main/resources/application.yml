@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mini-carrot-user-service
+  
+  # 프로파일별 설정 파일 포함
+  profiles:
+    include: local
+  
+  # 데이터베이스 설정 (실제 값은 application-local.yml에서 관리)
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/minicarrot}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    database: mysql
+
+# JWT 설정 (실제 값은 application-local.yml에서 관리)
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-for-development-only}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# 로깅 설정
+logging:
+  level:
+    com.minicarrot.user: ${LOG_LEVEL:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
