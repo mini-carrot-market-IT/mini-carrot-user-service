@@ -15,22 +15,71 @@ Spring Boot 기반의 사용자 관리 마이크로서비스입니다.
 
 ## 🚀 기능 소개
 
-- **회원가입**: 이메일, 비밀번호, 닉네임으로 회원가입
-- **로그인**: JWT 토큰 기반 인증
-- **프로필 조회**: 사용자 정보 조회
-- **헬스체크**: 서비스 상태 확인
-- **비밀번호 암호화**: BCrypt 사용
-- **데이터 검증**: Spring Validation 적용
+### 💳 사용자 관리
+- **회원가입/로그인**: JWT 토큰 기반 인증
+- **프로필 관리**: 닉네임, 비밀번호 변경
+- **사용자 검색**: 이메일, 닉네임으로 검색
+- **사용자 목록**: 전체 사용자 조회 및 삭제
+- **실시간 이벤트**: 회원가입, 프로필 업데이트 이벤트 발행
+
+### 🔐 보안 기능
+- **JWT 인증**: 안전한 토큰 기반 인증
+- **비밀번호 암호화**: BCrypt 해싱
+- **입력 유효성 검사**: Bean Validation
+- **CORS 설정**: 크로스 오리진 요청 지원
+
+### 🔄 메시지 큐 시스템
+- **RabbitMQ 연동**: 비동기 메시지 처리
+- **이벤트 발행**: 사용자 등록/업데이트 이벤트
+- **알림 시스템**: 환영 메시지, 프로필 업데이트 알림
+- **Dead Letter Queue**: 실패 메시지 처리
+
+### 🌐 외부 API 연동
+- **WebClient**: 비동기 HTTP 클라이언트
+- **Product 서비스 연동**: 마이크로서비스 통신
+- **외부 API 호출**: JSONPlaceholder API 연동
+- **푸시 알림**: FCM, APNS 연동 준비
+
+### 📊 모니터링 시스템
+- **Prometheus**: 메트릭 수집
+- **Grafana**: 실시간 대시보드  
+- **Elasticsearch + Kibana**: 로그 분석
+- **Actuator**: Spring Boot 모니터링
 
 ## 🛠 기술 스택
 
+### 🔧 Core
 - **Framework**: Spring Boot 3.5.0
 - **Language**: Java 17
-- **Database**: MySQL 8.0
-- **Security**: Spring Security + JWT
 - **Build Tool**: Gradle
-- **Container**: Docker
 - **Architecture**: Microservice
+
+### 💾 Database & Messaging
+- **Database**: MySQL 8.0
+- **Message Queue**: RabbitMQ 3.12
+- **Cache**: Redis (연동 준비)
+
+### 🔐 Security & Auth
+- **Security**: Spring Security + JWT
+- **Password**: BCrypt Hashing
+- **Validation**: Bean Validation
+
+### 🌐 Communication
+- **HTTP Client**: WebClient (Reactive)
+- **REST API**: Spring Web MVC
+- **Serialization**: Jackson JSON
+
+### 📊 Monitoring & Observability
+- **Metrics**: Prometheus + Micrometer
+- **Visualization**: Grafana
+- **Logging**: Logback + ELK Stack
+- **Health Check**: Spring Actuator
+
+### 🐳 DevOps
+- **Container**: Docker & Docker Compose
+- **Orchestration**: Kubernetes (NCP)
+- **Registry**: Naver Container Registry
+- **CI/CD**: GitHub Actions (준비)
 
 ## 🏃‍♂️ 시작하기
 
@@ -51,45 +100,54 @@ cp env.example .env
 vi .env
 ```
 
-### 3. 애플리케이션 실행
+### 3. 환경별 실행 방법
+
+#### 🐳 로컬 개발 환경 (Docker Compose 권장)
 
 ```bash
-# 권한 부여 (macOS/Linux)
-chmod +x gradlew
+# 1. 전체 인프라 시작 (MySQL, RabbitMQ, 모니터링)
+docker-compose -f docker-compose-messagequeue.yml up -d
 
-# 애플리케이션 실행
-./gradlew bootRun
+# 2. Spring Boot 애플리케이션 실행
+./gradlew bootRun --args='--spring.profiles.active=local'
+
+# 3. 서비스 접속 확인
+curl http://localhost:8080/actuator/health
 ```
 
-애플리케이션이 `http://localhost:8080`에서 실행됩니다.
+#### ☁️ NCP 클러스터 배포
 
-## ⚙️ 환경 설정
+```bash
+# 1. Secrets 생성 (한 번만 실행)
+kubectl apply -f k8s/create-secrets.yaml
 
-### 데이터베이스 설정
+# 2. User Service 배포
+kubectl apply -f k8s/user-service-deployment.yaml
 
-MySQL 데이터베이스가 필요합니다:
+# 3. 배포 상태 확인
+kubectl get pods -n tuk-trainee12 -l app=user-service
+kubectl get svc -n tuk-trainee12 user-service-external
+```
+
+## ⚙️ 데이터베이스 연결 정보
+
+### 🔗 연결 방식별 설정
+
+| 환경 | 호스트 | 포트 | 데이터베이스 | 사용자 | 비밀번호 |
+|------|--------|------|-------------|--------|----------|
+| **로컬 개발** | `localhost` | `3306` | `minicarrot` | `minicarrot` | `password123` |
+| **NCP 내부** | `mysql-service.tuk-trainee12.svc.cluster.local` | `3306` | `mini_carrot_user` | `carrot_user` | `CarrotPass#2024` |
+| **NCP 외부** | `[노드IP]` | `31206` | `mini_carrot_user` | `carrot_user` | `CarrotPass#2024` |
+
+### 🛠️ 데이터베이스 초기화
 
 ```sql
--- 데이터베이스 생성
-CREATE DATABASE minicarrot;
+-- 테이블은 자동으로 생성됩니다 (JPA DDL Auto: update)
+-- 초기 테스트 데이터도 포함됩니다
 
--- 사용자 테이블은 자동으로 생성됩니다 (JPA DDL Auto)
-```
-
-### 환경변수 설정
-
-`.env` 파일에서 다음 값들을 설정해야 합니다:
-
-```env
-# 필수 설정
-DB_URL=jdbc:mysql://localhost:3306/minicarrot?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-JWT_SECRET=your-super-secret-key-at-least-32-characters-long
-
-# 선택 설정
-JPA_DDL_AUTO=update
-LOG_LEVEL=INFO
+-- 테스트 계정:
+-- 이메일: admin@minicarrot.com
+-- 비밀번호: password123
 ```
 
 ## 📚 API 문서

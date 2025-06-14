@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+  # MySQL 데이터베이스
+  mysql:
+    image: mysql:8.0
+    container_name: minicarrot-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: minicarrot
+      MYSQL_USER: minicarrot
+      MYSQL_PASSWORD: password123
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/db/migration/V001__create_user_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - minicarrot-network
+
+  # RabbitMQ 메시지 큐
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: minicarrot-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: minicarrot
+      RABBITMQ_DEFAULT_PASS: password123
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"    # AMQP port
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - minicarrot-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # User Service 애플리케이션
+  user-service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: minicarrot-user-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 데이터베이스 설정
+      DB_URL: jdbc:mysql://mysql:3306/minicarrot?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: minicarrot
+      DB_PASSWORD: password123
+      
+      # RabbitMQ 설정
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: minicarrot
+      RABBITMQ_PASSWORD: password123
+      RABBITMQ_VHOST: /
+      
+      # JWT 설정
+      JWT_SECRET: mini-carrot-super-secret-key-change-this-in-production-environment
+      JWT_EXPIRATION: 86400000
+      
+      # JPA 설정
+      JPA_DDL_AUTO: create-drop
+      JPA_SHOW_SQL: false
+      
+      # 외부 서비스 설정
+      PRODUCT_SERVICE_URL: http://product-service:8081
+      EXTERNAL_API_TIMEOUT: 5
+      
+      # 로깅 설정
+      LOG_LEVEL: INFO
+      LOG_LEVEL_SECURITY: WARN
+      
+      # 서버 설정
+      SERVER_PORT: 8080
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - minicarrot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/users/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Prometheus 모니터링
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: minicarrot-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - minicarrot-network
+
+  # Grafana 대시보드
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: minicarrot-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: minicarrot123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - minicarrot-network
+
+  # Elasticsearch (로그 분석)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: minicarrot-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - minicarrot-network
+
+  # Kibana (로그 시각화)
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: minicarrot-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - minicarrot-network
+
+volumes:
+  mysql_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+networks:
+  minicarrot-network:
+    driver: bridge 

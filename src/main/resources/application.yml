@@ -15,6 +15,18 @@ spring:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:password}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
+      connection-timeout: 10000
+      idle-timeout: 180000
+      max-lifetime: 600000
+      leak-detection-threshold: 15000
+      connection-test-query: SELECT 1
+      validation-timeout: 2000
+      auto-commit: false
+      initialization-fail-timeout: 1
+      keepalive-time: 120000
     
   jpa:
     hibernate:
@@ -24,7 +36,21 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+        connection:
+          provider_disables_autocommit: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
     database: mysql
+
+  # RabbitMQ 설정
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
 
 # JWT 설정 (실제 값은 application-local.yml에서 관리)
 jwt:
@@ -36,3 +62,26 @@ logging:
   level:
     com.minicarrot.user: ${LOG_LEVEL:INFO}
     org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
+
+# 외부 서비스 연동 설정
+app:
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
+  external-api:
+    timeout: ${EXTERNAL_API_TIMEOUT:5}
+
+
+    
+# 모니터링 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true

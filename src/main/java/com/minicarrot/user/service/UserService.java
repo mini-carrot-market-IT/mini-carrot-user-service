@@ -2,6 +2,7 @@ package com.minicarrot.user.service;
 
 import com.minicarrot.user.common.Constants.ErrorMessage;
 import com.minicarrot.user.dto.TokenResponse;
+import com.minicarrot.user.dto.UserEventDto;
 import com.minicarrot.user.dto.UserLoginRequest;
 import com.minicarrot.user.dto.UserRegisterRequest;
 import com.minicarrot.user.dto.UserResponse;
@@ -14,16 +15,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final UserEventPublisher userEventPublisher;
 
+    /**
+     * 사용자 등록
+     */
+    @Transactional
     public UserResponse register(UserRegisterRequest request) {
         log.info("회원가입 시도: email={}, nickname={}", request.getEmail(), request.getNickname());
         
@@ -50,12 +59,27 @@ public class UserService {
         User savedUser = userRepository.save(user);
         log.info("회원가입 성공: userId={}, email={}", savedUser.getUserId(), savedUser.getEmail());
 
+        // 사용자 등록 이벤트 발행 (트랜잭션 커밋 후 처리)
+        try {
+            UserEventDto registrationEvent = UserEventDto.createRegistrationEvent(
+                    savedUser.getUserId(),
+                    savedUser.getEmail(),
+                    savedUser.getNickname()
+            );
+            userEventPublisher.publishUserRegistrationEvent(registrationEvent);
+        } catch (Exception e) {
+            log.warn("사용자 등록 이벤트 발행 실패: userId={}, error={}", savedUser.getUserId(), e.getMessage());
+            // 이벤트 발행 실패는 회원가입 자체를 실패시키지 않음
+        }
+
         return UserResponse.builder()
                 .userId(savedUser.getUserId())
                 .email(savedUser.getEmail())
                 .nickname(savedUser.getNickname())
                 .build();
     }
+
+
 
     @Transactional(readOnly = true)
     public TokenResponse login(UserLoginRequest request) {
@@ -88,6 +112,8 @@ public class UserService {
                 .user(userResponse)
                 .build();
     }
+
+
 
     @Transactional(readOnly = true)
     public UserResponse getProfile(String token) {
@@ -133,8 +159,24 @@ public class UserService {
             throw new IllegalArgumentException(ErrorMessage.NICKNAME_ALREADY_EXISTS);
         }
 
+        // 이전 닉네임 저장
+        String previousNickname = user.getNickname();
+        
         // 엔티티의 도메인 메서드 사용
         user.changeNickname(newNickname);
+        
+        // 프로필 업데이트 이벤트 발행
+        try {
+            UserEventDto updateEvent = UserEventDto.createProfileUpdateEvent(
+                    user.getUserId(),
+                    user.getEmail(),
+                    newNickname,
+                    previousNickname
+            );
+            userEventPublisher.publishUserProfileUpdateEvent(updateEvent);
+        } catch (Exception e) {
+            log.warn("프로필 업데이트 이벤트 발행 실패: userId={}, error={}", user.getUserId(), e.getMessage());
+        }
         
         log.info("닉네임 변경 성공: userId={}, newNickname={}", user.getUserId(), newNickname);
 
@@ -144,6 +186,8 @@ public class UserService {
                 .nickname(user.getNickname())
                 .build();
     }
+
+
 
     // 비밀번호 변경 메서드 추가
     @Transactional
@@ -162,5 +206,51 @@ public class UserService {
         user.changePassword(currentPassword, newPassword, passwordEncoder);
         
         log.info("비밀번호 변경 성공: userId={}", user.getUserId());
+    }
+
+    /**
+     * 모든 사용자 조회
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        log.info("모든 사용자 조회 요청");
+        
+        List<User> users = userRepository.findAll();
+        log.info("사용자 조회 완료: 총 {}명", users.size());
+        
+        return users.stream()
+                .map(user -> UserResponse.builder()
+                        .userId(user.getUserId())
+                        .email(user.getEmail())
+                        .nickname(user.getNickname())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+
+
+    // 사용자 삭제 메서드 추가
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException(ErrorMessage.USER_NOT_FOUND));
+        
+        userRepository.delete(user);
+        log.info("사용자 삭제 성공: userId={}", userId);
+    }
+
+    // 사용자 검색 메서드 추가
+    @Transactional(readOnly = true)
+    public List<UserResponse> searchUsers(String keyword) {
+        log.info("사용자 검색: keyword={}", keyword);
+        
+        List<User> users = userRepository.findByEmailContainingOrNicknameContaining(keyword, keyword);
+        return users.stream()
+                .map(user -> UserResponse.builder()
+                        .userId(user.getUserId())
+                        .email(user.getEmail())
+                        .nickname(user.getNickname())
+                        .build())
+                .collect(Collectors.toList());
     }
 } 

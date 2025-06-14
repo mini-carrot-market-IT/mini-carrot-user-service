@@ -46,6 +46,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register", "/api/users/login", "/api/users/health").permitAll()
+                .requestMatchers("/api/notifications/**").permitAll() // SSE 엔드포인트 허용
                 .requestMatchers("/h2-console/**").permitAll()
                 .anyRequest().permitAll()
             )
